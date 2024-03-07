@@ -1,0 +1,34 @@
+{
+    "env": {
+        "browser": true,
+        "es2021": true
+    },
+    "extends": [
+        "standard-with-typescript",
+        "eslint:recommended",
+        "plugin:react/recommended",
+        "plugin:react-hooks/recommended",
+        "prettier"
+    ],
+    "parserOptions": {
+        "ecmaFeatures": {
+            "jsx": true
+        },
+        "sourceType": "module",
+        "ecmaVersion": "latest"
+    },
+    "plugins": [
+        "react",
+        "typescript"
+    ],
+    "rules": {
+        "jsx-a11y/alt-text": "off",
+        "react-hooks/exhaustive-deps": "off",
+        "indent": ["error", 4],
+        "linebreak-style": "off",
+        "quotes": ["error", "single"],
+        "semi": ["error", "never"],
+        "comma-dangle": ["error", "never"]
+    },
+    "ignorePatterns": ["node_modules/", ".build/", "public/"]
+}
