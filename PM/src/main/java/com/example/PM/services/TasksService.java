@@ -5,7 +5,9 @@ import com.example.PM.exeptions.ResourceNotFoundException;
 import com.example.PM.payload.records.AssignedUsers;
 import com.example.PM.payload.records.TasksResponse;
 import com.example.PM.payload.records.TeamInfo;
+import com.example.PM.payload.request.AssignUsersToTask;
 import com.example.PM.payload.request.CreateTask;
+import com.example.PM.payload.request.EditTaskRequest;
 import com.example.PM.repository.TasksRepository;
 import com.example.PM.repository.UserRepository;
 import org.springframework.stereotype.Service;
@@ -31,8 +33,8 @@ public class TasksService {
 
 
 
-    public List<TasksResponse> getAllTasks() {
-        List<Tasks> tasks = tasksRepository.findAll();
+    public List<TasksResponse> getAllTasks(int teamId) {
+        List<Tasks> tasks = tasksRepository.findByTeamId(teamId);
         return tasks.stream()
                 .map(this::mapTaskToTasksResponse)
                 .collect(Collectors.toList());
@@ -40,9 +42,18 @@ public class TasksService {
 
     public TasksResponse getTaskById(int taskId) {
         Tasks task = tasksRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task with id %s not found".formatted(taskId)));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Task with id %s not found".formatted(taskId))
+                );
 
         return mapTaskToTasksResponse(task);
+    }
+
+    public Tasks findTaskById(int taskId) {
+        return tasksRepository.findById(taskId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Task with id %s not found".formatted(taskId))
+                );
     }
 
     private TasksResponse mapTaskToTasksResponse(Tasks task) {
@@ -72,6 +83,22 @@ public class TasksService {
         );
     }
 
+    private void addUsersToTask(Tasks task, List<Integer> memberIds) {
+        List<Integer> addedMembers = memberIds;
+
+        if (addedMembers.size() == 1) {
+            User user = userRepository.findById(addedMembers.get(0)).orElseThrow(() -> new ResourceNotFoundException("User not found"));
+            task.addUser(user);
+        } else {{
+            Set<User> assignedUsers = new HashSet<>();
+            addedMembers.forEach(m -> {
+                User user = userRepository.findById(m).orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                assignedUsers.add(user);
+            });
+            task.setAssignedUsers(assignedUsers);
+        }}
+    }
+
     public void createTask(CreateTask taskRequest, int teamId) {
 
         Teams team = teamsService.getTeam(teamId);
@@ -97,24 +124,45 @@ public class TasksService {
                 }
         );
 
-        List<Integer> addedMembers = taskRequest.membersId();
-
-        if (addedMembers.size() == 1) {
-            User user = userRepository.findById(addedMembers.get(0)).orElseThrow(() -> new ResourceNotFoundException("User not found"));
-            task.addUser(user);
-        } else {{
-            Set<User> assignedUsers = new HashSet<>();
-            addedMembers.forEach(m -> {
-                User user = userRepository.findById(m).orElseThrow(() -> new ResourceNotFoundException("User not found"));
-                assignedUsers.add(user);
-            });
-            task.setAssignedUsers(assignedUsers);
-        }}
+        addUsersToTask(task, taskRequest.membersId());
 
         tasksRepository.save(task);
     }
 
-    public void assignUsersToTask() {
+    public void assignUsersToTask(int taskId, AssignUsersToTask assignUsersToTask) {
 
+        Tasks task = findTaskById(taskId);
+
+        addUsersToTask(task, assignUsersToTask.usersId());
+
+        tasksRepository.save(task);
+    }
+
+    public void editTask(EditTaskRequest editTask, int taskId) {
+        Tasks task = findTaskById(taskId);
+
+        task.setTitle(editTask.title());
+        task.setDescription(editTask.description());
+        task.setStatus(
+                switch (editTask.status()) {
+                    case "TODO" -> EStatus.TODO;
+                    case "COMPLETED" -> EStatus.COMPLETED;
+                    default -> EStatus.IN_PROGRESS;
+                }
+        );
+
+        addUsersToTask(task, editTask.membersId());
+
+        tasksRepository.save(task);
+    }
+
+    public void deleteTask(int taskId) {
+        Tasks taskToDelete = findTaskById(taskId);
+        tasksRepository.delete(taskToDelete);
+    }
+
+    public void deleteTasksFromTeam(int teamId) {
+        List<Tasks> tasksToDelete = tasksRepository.findByTeamId(teamId);
+        tasksRepository.deleteAll(tasksToDelete);
     }
 }
